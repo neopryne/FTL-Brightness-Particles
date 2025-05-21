@@ -1,0 +1,3 @@
+<mod:findLike type="scripts">
+    <mod-append:script>data/brightness_particles.lua</mod-append:script>
+</mod:findLike>
