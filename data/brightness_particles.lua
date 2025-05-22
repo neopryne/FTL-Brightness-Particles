@@ -1,5 +1,5 @@
 ----------------------------------------
---   Brightness Particle System 1.2   --
+--   Brightness Particle System 1.4   --
 --                                    --
 -- Created by Brightlord and Lizzard  --
 --   with generous input from         --
@@ -27,6 +27,43 @@ local Brightness = mods.brightness
 -- e.g. "local myParticle = Brightness.create_particle()"                                  --
 ---------------------------------------------------------------------------------------------
 
+--------------------------------
+--  Supported render layers:  --
+-- MAIN_MENU_PRE              --
+-- MAIN_MENU                  --
+-- GUI_CONTAINER_PRE          --
+-- GUI_CONTAINER              --
+-- LAYER_BACKGROUND_PRE       --
+-- LAYER_BACKGROUND           --
+-- LAYER_FOREGROUND_PRE       --
+-- LAYER_FOREGROUND           --
+-- LAYER_ASTEROIDS_PRE        --
+-- LAYER_ASTEROIDS            --
+-- LAYER_PLAYER_PRE           --
+-- LAYER_PLAYER               --
+-- SHIP_PRE                   --
+-- SHIP                       --
+-- SHIP_MANAGER_PRE           --
+-- SHIP_MANAGER               --
+-- SHIP_JUMP_PRE              --
+-- SHIP_JUMP                  --
+-- SHIP_HULL_PRE              --
+-- SHIP_HULL                  --
+-- SHIP_ENGINES_PRE           --
+-- SHIP_ENGINES               --
+-- SHIP_FLOOR_PRE             --
+-- SHIP_FLOOR                 --
+-- SHIP_BREACHES_PRE          --
+-- SHIP_BREACHES              --
+-- SHIP_SPARKS_PRE            --
+-- SHIP_SPARKS                --
+-- LAYER_FRONT_PRE            --
+-- LAYER_FRONT                --
+-- SPACE_STATUS_PRE           --
+-- SPACE_STATUS               --
+-- MOUSE_CONTROL_PRE          --
+-- MOUSE_CONTROL              --
+--------------------------------
 
 --This is how you create new particles (who knew?). The function will return the particle itself, so
 --you can alter its attributes post-creation.
@@ -60,7 +97,7 @@ function mods.brightness.create_particle(folder, frameCount, seconds, location, 
         renderEvent = layer, --String
             --The RenderEvents callback that will render the particle.
             --i.e. when rendering a particle with SHIP_SPARKS, pass this as "SHIP_SPARKS"
-            --Supported render layers are listed on the forum page.
+            --A list of supported render layers is commented above this function.
 
     ---------------------------------------------------------------
     -- The following aren't arguments of create_particle; if you --
@@ -119,6 +156,9 @@ function mods.brightness.create_particle(folder, frameCount, seconds, location, 
         hideOnJump = false, --Bool
             --Setting to true will prevent the particle from rendering during a jump. Applies to the ship
             --specified in the .space attribute
+        playDuringGamePause = false, --Bool
+            --Setting to true will allow the particle to animate even when the game is paused.
+            --The paused attribute of the particle will still pause it.
 
     -------------------------------------------------------------------
     -- Internal-use attributes. I don't recommend messing with them. --
@@ -139,12 +179,14 @@ end
 --And as one might expect, this is how you destroy particles (important if their "persists" attribute is True).
 --This isn't otherwise necessary to use, as non-persisting particles will automatically expire after their lifetime.
 function mods.brightness.destroy_particle(particle)
+    if particle.indexNum < 1 or particle.indexNum > #particleList[particle.renderEvent] then return end
     table.remove(particleList[particle.renderEvent], particle.indexNum)
     local i = particle.indexNum
     while i <= #particleList[particle.renderEvent] do
         particleList[particle.renderEvent][i].indexNum = particleList[particle.renderEvent][i].indexNum - 1
         i = i + 1
     end
+    particle.indexNum = -1
 end
 
 --Sends a particle to the top of its layer, causing it to be rendered above others on its layer.
@@ -306,7 +348,6 @@ end
 --Update's all of a particle's attributes. Increments the counter i if necessary and returns it
 --                                         (Lua is a stupid language, so I can't pass by reference)
 local function update_particle(particle, i)
-    print("Update particle: countdown ", particle.countdown, " space ", particle.space, "visible ", particle.visible, " X ", particle.position.x, " Y ", particle.position.y)
     if particle.countdown == 0 then
                 
         --render current frame image
@@ -320,7 +361,7 @@ local function update_particle(particle, i)
         end
 
         --update timer and position
-        if not(game_is_paused() or particle.paused) then
+        if not((game_is_paused() and not particle.playDuringGamePause) or particle.paused) then
             particle.remainingDuration = math.max(particle.remainingDuration - Hyperspace.FPS.SpeedFactor/16, 0)
             particle.currentFrame = math.floor(((particle.lifetime - particle.remainingDuration) * particle.totalFrames) / particle.lifetime)
             if particle.pauseOnFrame and particle.pauseOnFrame == particle.currentFrame then
@@ -371,9 +412,7 @@ end
 local function handle_ship_particles(layer, ship)
     local i = 1
     while particleList[layer] and i <= #particleList[layer] do
-        print(#particleList[layer], " particles on ", layer)
         if ship.iShipId == particleList[layer][i].space then
-            print("Updating particle", particleList[layer][i])
             i = update_particle(particleList[layer][i], i)
         else
             i = i + 1
@@ -381,43 +420,47 @@ local function handle_ship_particles(layer, ship)
     end
 end
 
-script.on_render_event(Defines.RenderEvents.SHIP, function() end, function(ship)
-    handle_ship_particles("SHIP", ship)
-end)
+local function registerRenderEvents(eventList, handlerFunction)
+    for name, _ in pairs(eventList) do
+        script.on_render_event(Defines.RenderEvents[name], function(maybeShip)
+            handlerFunction(name .. "_PRE")
+        end, function(maybeShip)
+            handlerFunction(name, maybeShip)
+        end)
+    end
+end
 
-script.on_render_event(Defines.RenderEvents.SHIP_MANAGER, function() end, function(ship)
-    handle_ship_particles("SHIP_MANAGER", ship)
-end)
+--In three lists to try to order them by in-game z-order.
+local globalEventsBeforeShip = {
+    MAIN_MENU = true,
+    LAYER_BACKGROUND = true,
+    LAYER_FOREGROUND = true
+}
 
-script.on_render_event(Defines.RenderEvents.SHIP_JUMP, function() end, function(ship)
-    handle_ship_particles("SHIP_JUMP", ship)
-end)
+local shipEvents = {
+    SHIP = true,
+    SHIP_MANAGER = true,
+    SHIP_JUMP = true,
+    SHIP_HULL = true,
+    SHIP_ENGINES = true,
+    SHIP_FLOOR = true,
+    SHIP_BREACHES = true,
+    SHIP_SPARKS = true,
+}
 
-script.on_render_event(Defines.RenderEvents.SHIP_HULL, function() end, function(ship)
-    handle_ship_particles("SHIP_HULL", ship)
-end)
+local globalEventsAfterShip = {
+    LAYER_ASTEROIDS = true,
+    LAYER_PLAYER = true,
+    LAYER_FRONT = true,
+    SPACE_STATUS = true,
+    TABBED_WINDOW = true,
+    MOUSE_CONTROL = true,
+    GUI_CONTAINER = true
+}
+registerRenderEvents(globalEventsBeforeShip, handle_particles)
+registerRenderEvents(shipEvents, handle_ship_particles)
+registerRenderEvents(globalEventsAfterShip, handle_particles)
 
-script.on_render_event(Defines.RenderEvents.SHIP_ENGINES, function() end, function(ship)
-    handle_ship_particles("SHIP_ENGINES", ship)
-end)
-
-script.on_render_event(Defines.RenderEvents.SHIP_FLOOR, function() end, function(ship)
-    handle_ship_particles("SHIP_FLOOR", ship)
-end)
-
-script.on_render_event(Defines.RenderEvents.SHIP_BREACHES, function() end, function(ship)
-    handle_ship_particles("SHIP_BREACHES", ship)
-end)
-
-script.on_render_event(Defines.RenderEvents.SHIP_SPARKS, function() end, function(ship)
-    handle_ship_particles("SHIP_SPARKS", ship)
-end)
-
-script.on_render_event(Defines.RenderEvents.MOUSE_CONTROL, function(mouseControl)
-    handle_particles("MOUSE_CONTROL_PRE")
-end, function(mouseControl)
-    handle_particles("MOUSE_CONTROL")
-end)
 
 script.on_game_event("DEATH", false, function()
     cleanup_on_restart()
@@ -425,19 +468,4 @@ end)
 
 script.on_game_event("START_BEACON", false, function()
     cleanup_on_restart()
-end)
-
-script.on_internal_event(Defines.InternalEvents.ON_KEY_DOWN, function(key)
-    if key == 277 then
-        local mouseControl = Hyperspace.Global.GetInstance():GetMouseControl()
-        Brightness.create_particle(
-            "particles/entropy_particle_0",
-            8,
-            2,
-            mouseControl.position,
-            0,
-            nil,
-            "MOUSE_CONTROL_PRE"
-        )
-    end
 end)
