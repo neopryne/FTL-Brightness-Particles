@@ -1,3 +1,6 @@
+Originally created by Brightlord here: https://ftlmultiverse.boards.net/thread/109/library-brightness-particles?page=1
+
+
 This Lua dependency library allows you to render custom animations ("particles") at any point in your Lua script.
 
 
