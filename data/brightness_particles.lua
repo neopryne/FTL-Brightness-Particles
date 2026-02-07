@@ -171,6 +171,9 @@ function mods.brightness.create_particle(folder, frameCount, seconds, location, 
         particleList[layer] = {}
     end
     newParticle.indexNum = #particleList[layer] + 1 --Int. **Don't** tamper with this one
+    newParticle.isDestroyed = function(self)
+        return self.indexNum == -1
+    end
         --This should automatically hold the same value as the particle's index value in particleList[layer]
     particleList[layer][#particleList[layer] + 1] = newParticle
     return newParticle
