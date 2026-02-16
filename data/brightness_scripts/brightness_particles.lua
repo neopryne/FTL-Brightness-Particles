@@ -8,12 +8,8 @@
 --   Pepson                           --
 ----------------------------------------
 
-mods.brightness = {}
 
-mods.brightness.particleList = {}
 local particleList = mods.brightness.particleList
-mods.brightness.primitiveList = {}
-local primitiveList = mods.brightness.primitiveList
 
 local Brightness = mods.brightness
 
@@ -318,23 +314,6 @@ local function game_is_paused()
     end
 end
 
---Allows a render event to refer to an already-existing primitive of a png file if possible to avoid creating duplicates.
-local function primitiveListManager(string)
-    if not primitiveList[string] then
-        local stringID = Hyperspace.Resources:GetImageId(string)
-        primitiveList[string] = Hyperspace.Resources:CreateImagePrimitiveString(
-            string,
-            0 - stringID.width/2,
-            0 - stringID.height/2,
-            0,
-            Graphics.GL_Color(1, 1, 1, 1),
-            1.0,
-            false
-        )
-    end
-    return primitiveList[string]
-end
-
 local function cleanup_on_restart()
     for layer, _ in pairs(particleList) do
         local i = 1
@@ -359,7 +338,7 @@ local function update_particle(particle, i)
             Graphics.CSurface.GL_Translate(particle.position.x, particle.position.y, 0)
             Graphics.CSurface.GL_Rotate(particle.rotation, 0, 0, 1)
             Graphics.CSurface.GL_Scale(particle.scale, particle.scale, 1)
-            Graphics.CSurface.GL_RenderPrimitive(primitiveListManager(particle.spriteSheet.."/"..tostring(particle.currentFrame)..".png"))
+            Graphics.CSurface.GL_RenderPrimitive(Brightness.primitiveListManager(particle.spriteSheet.."/"..tostring(particle.currentFrame)..".png", true))
             Graphics.CSurface.GL_PopMatrix()
         end
 
@@ -426,7 +405,7 @@ end
 local function registerRenderEvents(eventList, handlerFunction)
     for name, _ in pairs(eventList) do
         script.on_render_event(Defines.RenderEvents[name], function(maybeShip)
-            handlerFunction(name .. "_PRE")
+            handlerFunction(name .. "_PRE", maybeShip)
         end, function(maybeShip)
             handlerFunction(name, maybeShip)
         end)

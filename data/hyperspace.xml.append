@@ -1,3 +1,7 @@
 <mod:findLike type="scripts">
-    <mod-append:script>data/brightness_particles.lua</mod-append:script>
+    <mod-append:script>data/brightness_scripts/init.lua</mod-append:script>
+    <mod-append:script>data/brightness_scripts/graphics_manager.lua</mod-append:script>
+    <mod-append:script>data/brightness_scripts/brightness_rendering.lua</mod-append:script>
+    <mod-append:script>data/brightness_scripts/brightness_particles.lua</mod-append:script>
 </mod:findLike>
+
