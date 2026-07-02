@@ -155,6 +155,8 @@ function mods.brightness.create_particle(folder, frameCount, seconds, location, 
         playDuringGamePause = false, --Bool
             --Setting to true will allow the particle to animate even when the game is paused.
             --The paused attribute of the particle will still pause it.
+        mouseoverText = nil, --String
+            --Setting to a string value will give the particle a mouseover text box with that string.
 
     -------------------------------------------------------------------
     -- Internal-use attributes. I don't recommend messing with them. --
@@ -327,6 +329,30 @@ local function cleanup_on_restart()
     end
 end
 
+
+--[[
+--TODO brightness is missing layers CHOICE_BOX, SYSTEM_BOX, CREW_MEMBER_HEALTH, FTL_BUTTON
+]]
+
+-- written by arc
+local function convertMousePositionToPlayerShipPosition(mousePosition)
+    local cApp = Hyperspace.Global.GetInstance():GetCApp()
+    local combatControl = cApp.gui.combatControl
+    local playerPosition = combatControl.playerShipPosition
+    return Hyperspace.Point(mousePosition.x - playerPosition.x, mousePosition.y - playerPosition.y)
+end
+
+-- written by kokoro
+ local function convertMousePositionToEnemyShipPosition(mousePosition)
+    local cApp = Hyperspace.Global.GetInstance():GetCApp()
+    local combatControl = cApp.gui.combatControl
+    local position = combatControl.position
+    local targetPosition = combatControl.targetPosition
+    local enemyShipOriginX = position.x + targetPosition.x
+    local enemyShipOriginY = position.y + targetPosition.y
+    return Hyperspace.Point(mousePosition.x - enemyShipOriginX, mousePosition.y - enemyShipOriginY)
+end
+
 --Update's all of a particle's attributes. Increments the counter i if necessary and returns it
 --                                         (Lua is a stupid language, so I can't pass by reference)
 local function update_particle(particle, i)
@@ -338,8 +364,24 @@ local function update_particle(particle, i)
             Graphics.CSurface.GL_Translate(particle.position.x, particle.position.y, 0)
             Graphics.CSurface.GL_Rotate(particle.rotation, 0, 0, 1)
             Graphics.CSurface.GL_Scale(particle.scale, particle.scale, 1)
-            Graphics.CSurface.GL_RenderPrimitive(Brightness.primitiveListManager(particle.spriteSheet.."/"..tostring(particle.currentFrame)..".png", true))
+            local primativeContainer = Brightness.primitiveListManager(particle.spriteSheet.."/"..tostring(particle.currentFrame)..".png", true)
+            Graphics.CSurface.GL_RenderPrimitive(primativeContainer.primative)
             Graphics.CSurface.GL_PopMatrix()
+            --Render mouseoverText
+            local mousePos = Hyperspace.Mouse.position
+            if particle.space == 0 then
+                mousePos = convertMousePositionToPlayerShipPosition(mousePos)
+            elseif particle.space == 1 then
+                mousePos = convertMousePositionToEnemyShipPosition(mousePos)
+            end
+            --Rectangular collision since we don't know the sprite. --event TEST_HYPERSPACE_QUEST
+            local halfWidth = primativeContainer.properties.width * particle.scale / 2
+            local halfHeight = primativeContainer.properties.height * particle.scale / 2
+            if particle.mouseoverText and mousePos.x > particle.position.x - halfWidth and mousePos.x <= particle.position.x + halfWidth and
+                    mousePos.y > particle.position.y - halfHeight and mousePos.y <= particle.position.y + halfHeight then
+                Hyperspace.Mouse:SetTooltip(particle.mouseoverText)
+                Hyperspace.Mouse:InstantTooltip()
+            end
         end
 
         --update timer and position

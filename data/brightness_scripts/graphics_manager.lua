@@ -13,12 +13,11 @@ function Brightness.primitiveListManager(string, createCentered)
     local cacheString = string..tostring(createCentered)
     if not primitiveList[cacheString] then
         local stringID = Hyperspace.Resources:GetImageId(string)
-
         if createCentered then
             x = -stringID.width / 2
             y = -stringID.height / 2
         end
-        primitiveList[cacheString] = Hyperspace.Resources:CreateImagePrimitiveString(
+        primitiveList[cacheString] = {primative=Hyperspace.Resources:CreateImagePrimitiveString(
             string,
             x,
             y,
@@ -26,7 +25,7 @@ function Brightness.primitiveListManager(string, createCentered)
             Graphics.GL_Color(1, 1, 1, 1),
             1.0,
             false
-        )
+        ), properties={width=stringID.width, height=stringID.height}}
     end
     return primitiveList[cacheString]
 end
